@@ -3,6 +3,9 @@ package com.bignerdranch.android.phorogallery
 import android.util.Log
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
+import androidx.paging.DataSource
+import androidx.paging.LivePagedListBuilder
+import androidx.paging.PagedList
 import com.bignerdranch.android.phorogallery.api.FlickrApi
 import com.bignerdranch.android.phorogallery.api.FlickrResponse
 import com.bignerdranch.android.phorogallery.api.PhotoResponse
@@ -13,7 +16,7 @@ import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import retrofit2.converter.scalars.ScalarsConverterFactory
 
-private const val TAG = "FlickrFetchr"
+private const val TAG = "PG.FlickrFetchr"
 
 class FlickrFetchr {
 
@@ -29,28 +32,18 @@ class FlickrFetchr {
 		flickrApi = retrofit.create(FlickrApi::class.java)
 	}
 
-	fun fetchPhotos(): LiveData<List<GalleryItem>> {
-		val responseLiveData: MutableLiveData<List<GalleryItem>> = MutableLiveData()
-		flickrRequest = flickrApi.fetchPhotos()
+	fun fetchPhotos(): LiveData<PagedList<GalleryItem>> {
 
-		flickrRequest.enqueue(object : Callback<FlickrResponse> {
+		val config = PagedList.Config.Builder().apply {
+			setPageSize(30)
+			setEnablePlaceholders(false)
+		}.build()
 
-			override fun onFailure(call: Call<FlickrResponse>, t: Throwable) {
-				Log.e(TAG, "Failed to fetch photos", t)
-			}
+		val dataSourceFactory = object : DataSource.Factory<Int, GalleryItem>() {
+			override fun create(): DataSource<Int, GalleryItem> = GalleryItemDataSource(flickrApi)
+		}
 
-			override fun onResponse(call: Call<FlickrResponse>, response: Response<FlickrResponse>) {
-				Log.d(TAG, "Response received")
-				val flickrResponse: FlickrResponse? = response.body()
-				val photoResponse: PhotoResponse? = flickrResponse?.photos
-				var galleryItems: List<GalleryItem> = photoResponse?.galleryItems ?: mutableListOf()
-
-				galleryItems = galleryItems.filterNot { it.url.isBlank() }
-				responseLiveData.value = galleryItems
-			}
-		})
-
-		return responseLiveData
+		return LivePagedListBuilder<Int, GalleryItem>(dataSourceFactory, config).build()
 	}
 
 	fun cancelRequestInFlight() {

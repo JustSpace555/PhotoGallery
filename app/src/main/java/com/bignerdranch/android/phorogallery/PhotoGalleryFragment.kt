@@ -7,17 +7,15 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.TextView
 import androidx.fragment.app.Fragment
-import androidx.lifecycle.LiveData
 import androidx.lifecycle.Observer
-import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
+import androidx.paging.PagedList
+import androidx.paging.PagedListAdapter
+import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.RecyclerView
-import retrofit2.Call
-import retrofit2.Callback
-import retrofit2.Response
 
-private const val TAG = "PhotoGalleryFragment"
+private const val TAG = "PG.PhotoGalleryFragment"
 
 class PhotoGalleryFragment: Fragment() {
 
@@ -32,7 +30,6 @@ class PhotoGalleryFragment: Fragment() {
 		super.onCreate(savedInstanceState)
 
 		photoGalleryViewModel = ViewModelProvider(this).get(PhotoGalleryViewModel::class.java)
-
 	}
 
 	override fun onCreateView(
@@ -51,10 +48,18 @@ class PhotoGalleryFragment: Fragment() {
 	override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
 		super.onViewCreated(view, savedInstanceState)
 
-		photoGalleryViewModel.galleryItemLiveData.observe(viewLifecycleOwner, Observer {
+		photoGalleryViewModel.galleryItemLiveData.observe(viewLifecycleOwner, Observer<PagedList<GalleryItem>> {
 			galleryItems ->
-			photoRecyclerView.adapter = PhotoAdapter(galleryItems)
+				photoRecyclerView.adapter = PhotoAdapter(galleryItems)
 		})
+	}
+
+	private class GalleryItemDiffUtil: DiffUtil.ItemCallback<GalleryItem>() {
+		override fun areContentsTheSame(oldItem: GalleryItem, newItem: GalleryItem): Boolean =
+			oldItem.title == newItem.title
+
+		override fun areItemsTheSame(oldItem: GalleryItem, newItem: GalleryItem): Boolean =
+			oldItem.id == newItem.id || oldItem.url == newItem.url
 	}
 
 	private class PhotoHolder(itemTextView: TextView): RecyclerView.ViewHolder(itemTextView) {
@@ -62,8 +67,8 @@ class PhotoGalleryFragment: Fragment() {
 		val bindTitle: (CharSequence) -> Unit = itemTextView::setText
 	}
 
-	private class PhotoAdapter(private val galleryItems: List<GalleryItem>):
-		RecyclerView.Adapter<PhotoHolder>() {
+	private class PhotoAdapter(private val galleryItems: PagedList<GalleryItem>):
+		PagedListAdapter<GalleryItem, PhotoHolder>(GalleryItemDiffUtil()) {
 
 		override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): PhotoHolder {
 			val textView = TextView(parent.context)
@@ -72,7 +77,8 @@ class PhotoGalleryFragment: Fragment() {
 
 		override fun onBindViewHolder(holder: PhotoHolder, position: Int) {
 			val galleryItem = galleryItems[position]
-			holder.bindTitle(galleryItem.title)
+			Log.d(TAG, "galleryItem[$position] = $galleryItem")
+			holder.bindTitle(galleryItem?.title ?: "Oooops NUUUUULLLLL")
 		}
 
 		override fun getItemCount(): Int = galleryItems.size
