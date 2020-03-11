@@ -59,7 +59,6 @@ class PhotoGalleryFragment: Fragment() {
 		val view = inflater.inflate(R.layout.fragment_photo_gallery, container, false)
 		photoRecyclerView = view.findViewById(R.id.photo_recycler_view)
 		photoRecyclerView.layoutManager = GridLayoutManager(context, 3)
-		viewLifecycleOwner.lifecycle.addObserver(thumbnailDownloader.viewLifecycleObserver)
 
 		return view
 	}
@@ -89,8 +88,7 @@ class PhotoGalleryFragment: Fragment() {
 
 	override fun onDestroyView() {
 		super.onDestroyView()
-
-		viewLifecycleOwner.lifecycle.removeObserver(thumbnailDownloader.viewLifecycleObserver)
+		thumbnailDownloader.clearQueue()
 	}
 
 	override fun onDestroy() {
@@ -107,7 +105,7 @@ class PhotoGalleryFragment: Fragment() {
 			oldItem.id == newItem.id || oldItem.url == newItem.url
 	}
 
-	private class PhotoHolder(private val itemImageView: ImageView):
+	private class PhotoHolder(itemImageView: ImageView):
 		RecyclerView.ViewHolder(itemImageView) {
 
 		val bindDrawable: (Drawable) -> Unit = itemImageView::setImageDrawable
@@ -134,7 +132,6 @@ class PhotoGalleryFragment: Fragment() {
 			getItem(position)?.let {
 				galleryItem ->
 				thumbnailDownloader.queueThumbnail(holder, galleryItem.url)
-//				holder.bindDrawable(it.title)
 			}
 		}
 	}

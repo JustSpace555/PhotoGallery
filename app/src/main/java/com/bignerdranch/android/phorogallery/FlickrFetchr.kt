@@ -12,8 +12,10 @@ import androidx.paging.LivePagedListBuilder
 import androidx.paging.PagedList
 import com.bignerdranch.android.phorogallery.api.FlickrApi
 import com.bignerdranch.android.phorogallery.api.FlickrDeserializer
+import com.bignerdranch.android.phorogallery.api.PhotoInterceptor
 import com.bignerdranch.android.phorogallery.api.PhotoResponse
 import com.google.gson.GsonBuilder
+import okhttp3.OkHttpClient
 import okhttp3.ResponseBody
 import retrofit2.Call
 import retrofit2.Response
@@ -44,11 +46,16 @@ class FlickrFetchr {
 			FlickrDeserializer()
 		)
 
+		val client = OkHttpClient.Builder()
+			.addInterceptor(PhotoInterceptor())
+			.build()
+
 		val retrofit: Retrofit = Retrofit.Builder()
 			.baseUrl("https://api.flickr.com/")
 			.addConverterFactory(
 				GsonConverterFactory.create(gsonBuilder.create())
 			)
+//			.client(client)
 			.build()
 
 		flickrApi = retrofit.create(FlickrApi::class.java)

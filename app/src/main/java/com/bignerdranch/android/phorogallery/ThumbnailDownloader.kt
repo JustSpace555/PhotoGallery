@@ -6,6 +6,7 @@ import android.os.Handler
 import android.os.HandlerThread
 import android.os.Message
 import android.util.Log
+import android.util.LruCache
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleObserver
 import androidx.lifecycle.OnLifecycleEvent
@@ -21,26 +22,19 @@ class ThumbnailDownloader<in T> (
 
 	private var hasQuit = false
 	private lateinit var requestHandler: Handler
+	private lateinit var cache: LruCache<String, Bitmap>
 	private val requestMap = ConcurrentHashMap<T, String>()
 	private val flickrFetchr = FlickrFetchr()
 
 
 
-	val viewLifecycleObserver: LifecycleObserver = object : LifecycleObserver {
-		@OnLifecycleEvent(Lifecycle.Event.ON_DESTROY)
-		fun clearQueue() {
-			Log.i(TAG, "Clearing all requests from queue")
-			requestHandler.removeMessages(MESSAGE_DOWNLOAD)
-			requestMap.clear()
-		}
-	}
-
-	val fragmentLifecycleObserver: LifecycleObserver = object  : LifecycleObserver {
+	val fragmentLifecycleObserver: LifecycleObserver = object: LifecycleObserver {
 
 		@OnLifecycleEvent(Lifecycle.Event.ON_CREATE)
 		fun setup() {
 			Log.i(TAG, "Starting background thread")
 			start()
+			cache = LruCache(5 * 1024 * 1024)
 			looper
 		}
 
@@ -73,7 +67,10 @@ class ThumbnailDownloader<in T> (
 
 	private fun handleRequest(target: T) {
 		val url = requestMap[target] ?: return
-		val bitmap = flickrFetchr.fetchPhoto(url) ?: return
+
+		if (cache[url] == null)
+			cache.put(url, flickrFetchr.fetchPhoto(url) ?: return)
+		val bitmap = cache[url]
 
 		responseHandler.post(Runnable {
 			if (requestMap[target] != url || hasQuit)
@@ -89,6 +86,12 @@ class ThumbnailDownloader<in T> (
 		Log.i(TAG, "Got a URL: $url")
 		requestMap[target] = url
 		requestHandler.obtainMessage(MESSAGE_DOWNLOAD, target).sendToTarget()
+	}
+
+	fun clearQueue() {
+		Log.i(TAG, "Clearing all requests from queue")
+		requestHandler.removeMessages(MESSAGE_DOWNLOAD)
+		requestMap.clear()
 	}
 
 
